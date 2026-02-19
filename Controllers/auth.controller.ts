@@ -4,8 +4,12 @@ import User from "../model/User"
 import bcrypt from "bcryptjs";
 import { generateToken } from "../Utils/token";
 
+export const getRoute = async (req:Request, res:Response): Promise<void> => {
+    console.log("route hit");
+}
 
 export const registerUser = async (req:Request, res:Response): Promise<void> => {
+    console.log("data",req.body);
     const { email, password , avatar , name } = req.body;
     try{
         let user =  await User.findOne({ email });
@@ -44,37 +48,32 @@ export const registerUser = async (req:Request, res:Response): Promise<void> => 
 
 export const loginUser = async (req:Request, res:Response): Promise<void> => {
     const { email, password } = req.body;
+
     try{
-        const user = await User.findOne({email});
-        if(!user)
-        {
-            res.status(400).json({
-                succes: false,
-                message : "User Already Exist!!"
-            })
+        console.log("backend login hit ", req.body);
+        const user = await User.findOne({ email: email.toLowerCase() });
+
+        if(!user){
+            res.status(400).json({ message: "User not found" });
             return;
         }
 
-        const isMatch = await bcrypt.compare(password,user.password)
+        const isMatch = await bcrypt.compare(password, user.password);
 
-        if(!isMatch)
-        {
-            res.status(400).json({
-                succes: false,
-                message : "User Already Exist!!"
-            })
+        if(!isMatch){
+            res.status(400).json({ message: "Invalid password" });
             return;
         }
 
         const token = generateToken(user);
+
         res.json({
             success: true,
-            token,
-        })
+            token
+        });
 
-    }
-    catch(error){
-        console.error('Registration error:', error);
-        res.status(500).json({ success:false, message: 'Registration Failed' });
+    }catch(error){
+        res.status(500).json({ message: "Login failed" });
     }
 }
+
