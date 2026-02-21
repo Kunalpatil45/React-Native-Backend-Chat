@@ -1,44 +1,44 @@
 import { Server as SocketIoServer, Socket } from "socket.io";
 import Conversation from "../model/Conversation";
-import { i } from "vite/dist/node/chunks/moduleRunnerTransport";
+
+import Message from "../model/Messages";
+
 
 
 export function registerChatEvents(io: SocketIoServer, socket: Socket) {
-    socket.on("getConversation",async ()=>{
-        console.log("getConversation")
+    socket.on("getConversation", async () => {
+        
 
-        try{
+        try {
             const userId = socket.data.userId;
-            console.log("going to check userId now")
-            if(!userId)
-            {
+            
+            if (!userId) {
                 console.log("userID check ongoing")
-                socket.emit("getConversation",{
-                    success:false,
-                    msg:"unauthorised"
+                socket.emit("getConversation", {
+                    success: false,
+                    msg: "unauthorised"
                 })
                 return;
             }
 
-            console.log("going to checking done")
+            
             const conversation = await Conversation.find({
-                participants:userId
-            }).sort({updatedAt: -1})
-            .populate({
-                path:"lastMessage",
-                select: "content senderId attachement createdAt"
-            }).populate({
+                participants: userId
+            }).sort({ updatedAt: -1 })
+                .populate({
+                    path: "lastMessage",
+                    select: "content senderId attachement createdAt"
+                }).populate({
                     path: "participants",
                     select: "name email avatar"
                 }).lean();
-                console.log("done")
-            socket.emit("getConversation",{
-                    success:true,
-                    data:conversation
-                });
+            console.log("done")
+            socket.emit("getConversation", {
+                success: true,
+                data: conversation
+            });
         }
-        catch(err)
-        {
+        catch (err) {
             console.log("err aa gya ")
             socket.emit("getConversation", {
                 success: false,
@@ -50,7 +50,7 @@ export function registerChatEvents(io: SocketIoServer, socket: Socket) {
 
 
     socket.on("newConversation", async (data) => {
-        console.log("newConversation event ", data);
+        
 
         try {
             if (data.type == 'direct') {
@@ -65,7 +65,7 @@ export function registerChatEvents(io: SocketIoServer, socket: Socket) {
                     socket.emit("new Conversation", {
                         success: true,
                         data: { ...existingConversation, isNew: false }
-                        
+
                     });
                     return;
                 }
@@ -90,15 +90,14 @@ export function registerChatEvents(io: SocketIoServer, socket: Socket) {
                     select: "name email avatar"
                 }).lean();
 
-                if(!populatedConversation)
-                {
-                    throw new Error("failed to populate conversation");
-                }
+            if (!populatedConversation) {
+                throw new Error("failed to populate conversation");
+            }
 
-                io.to(conversation._id.toString()).emit("newConversation",{
-                    success:true,
-                    data:{...populatedConversation,isNew:true}
-                });
+            io.to(conversation._id.toString()).emit("newConversation", {
+                success: true,
+                data: { ...populatedConversation, isNew: true }
+            });
 
         }
         catch (err) {
@@ -109,4 +108,81 @@ export function registerChatEvents(io: SocketIoServer, socket: Socket) {
             })
         }
     });
+
+    socket.on("newMessage", async (data) => {
+        console.log("newMessage event ", data);
+
+        try {
+            const message = await Message.create({
+                conversationId: data.conversationId,
+                senderId: data.sender.id,
+                content: data.content,
+                attachement: data.attachement,
+            })
+
+            io.to(data.conversationId).emit("newMessage", {
+                success: true,
+                data: {
+                    id: message._id,
+                    content: data.content,
+                    sender: {
+                        id: data.sender.id,
+                        name: data.sender.name,
+                        avatar: data.sender.avatar,
+                    },
+                    attachement: data.attachement || null,
+                    createdAt: new Date().toISOString(),
+                    conversationId: data.conversationId,
+                }
+            });
+
+            await Conversation.findByIdAndUpdate(data.conversationId, {
+                lastMessage: message._id,
+            })
+
+        } catch (err) {
+            console.log("newMessage err ", err);
+            socket.emit("newMessage", {
+                success: false,
+                msg: "failed to send message",
+            })
+        }
+    })
+
+
+    socket.on("getMessage", async (data: { conversationId: string }) => {
+        console.log("newMessage event ", data);
+
+        try {
+            const messages = await Message.find({
+                conversationId: data.conversationId,
+            })
+            .sort({ createdAt: 1 })
+            .populate<{senderId: {_id:string; name:string; avatar:string}}>({
+                path:"senderId",
+                select:"name avatar"
+            }).lean();
+
+            const messageWithSender = messages.map(message => ({
+                ...message,
+                id: message._id,
+                sender: {
+                    id: message.senderId._id,
+                    name: message.senderId.name,
+                    avatar: message.senderId.avatar,
+                }
+            }))
+            socket.emit("getMessage", {
+                success: true,
+                data: messageWithSender,
+            })
+        }
+         catch (err) {
+            console.log("getMessage err ", err);
+            socket.emit("getMessage", {
+                success: false,
+                msg: "failed to fetch message",
+            })
+        }
+    })
 }
