@@ -1,17 +1,17 @@
-import {UserProps} from "../type";
+import { UserProps } from "../type.js";
 
 import jwt from "jsonwebtoken";
 
-export const generateToken = (user:UserProps)=>{
+export const generateToken = (user: UserProps) => {
     const payload = {
-        user:{
-            id:user.id,
-            name:user.name,
-            email:user.email,
-            avatar:user.avatar
+        user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            avatar: user.avatar
         }
     }
-    return jwt.sign(payload ,process.env.JWT_SECERT as string, {
-        expiresIn : '24h'
+    return jwt.sign(payload, process.env.JWT_SECERT as string, {
+        expiresIn: '24h'
     })
 }

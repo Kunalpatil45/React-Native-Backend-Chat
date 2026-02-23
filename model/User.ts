@@ -1,29 +1,29 @@
-import { UserProps } from "../type";
+import { UserProps } from "../type.js";
 
-import {Schema, model} from 'mongoose';
+import { Schema, model } from 'mongoose';
 
 
 const userSchema = new Schema<UserProps>({
-  email:{
+  email: {
     type: String,
     required: true,
     unique: true,
     trim: true,
     lowercase: true,
   },
-  password:{
+  password: {
     type: String,
     required: true,
   },
-  name:{
+  name: {
     type: String,
-    required:true,
+    required: true,
   },
-  avatar:{
+  avatar: {
     type: String,
     default: "",
   },
-  created:{
+  created: {
     type: Date,
     default: Date.now,
   },

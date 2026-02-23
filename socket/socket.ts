@@ -2,9 +2,9 @@ import { Server as SocketIoServer, Socket, Server } from "socket.io";
 
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken"
-import { registerUserEvents } from "./userEvent";
-import { registerChatEvents } from "./chatEvents";
-import Conversation from "../model/Conversation";
+import { registerUserEvents } from "./userEvent.js";
+import { registerChatEvents } from "./chatEvents.js";
+import Conversation from "../model/Conversation.js";
 
 dotenv.config();
 
@@ -53,18 +53,17 @@ export function initializeSocket(server: any): SocketIoServer {
         registerUserEvents(io, socket);
         registerChatEvents(io, socket);
 
-        try{
+        try {
             const conversations = await Conversation.find({
-                participants:userId
+                participants: userId
             }).select("_id");
-            conversations.forEach(conversation=>{
+            conversations.forEach(conversation => {
                 socket.join(conversation._id.toString());
             }
             )
         }
-        catch(err)
-        {
-            console.log("Error Joining Conversation",err)
+        catch (err) {
+            console.log("Error Joining Conversation", err)
         }
 
         socket.on("disconnect", () => {

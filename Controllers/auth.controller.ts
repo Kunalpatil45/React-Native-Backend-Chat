@@ -1,33 +1,33 @@
 
-import {Request , Response } from "express"
-import User from "../model/User"
+import { Request, Response } from "express"
+import User from "../model/User.js"
 import bcrypt from "bcryptjs";
-import { generateToken } from "../Utils/token";
+import { generateToken } from "../Utils/token.js";
 
-export const getRoute = async (req:Request, res:Response): Promise<void> => {
+export const getRoute = async (req: Request, res: Response): Promise<void> => {
     console.log("route hit");
 }
 
-export const registerUser = async (req:Request, res:Response): Promise<void> => {
-    console.log("data",req.body);
-    const { email, password , avatar , name } = req.body;
-    try{
-        let user =  await User.findOne({ email });
-        if(user){
+export const registerUser = async (req: Request, res: Response): Promise<void> => {
+    console.log("data", req.body);
+    const { email, password, avatar, name } = req.body;
+    try {
+        let user = await User.findOne({ email });
+        if (user) {
             res.status(400).json({ message: 'User already exists' });
             return;
         }
 
-        user = new User({ 
-            email, 
-            password, 
-            avatar : avatar ||  "", 
-            name 
+        user = new User({
+            email,
+            password,
+            avatar: avatar || "",
+            name
 
         });
 
         const salt = await bcrypt.genSalt(10);
-        user.password =  await bcrypt.hash(password , salt);
+        user.password = await bcrypt.hash(password, salt);
 
 
         await user.save();
@@ -39,28 +39,28 @@ export const registerUser = async (req:Request, res:Response): Promise<void> => 
             token
         })
     }
-    catch(error){
+    catch (error) {
         console.error('Registration error:', error);
-        res.status(500).json({ success:false, message: 'Registration Failed' });
+        res.status(500).json({ success: false, message: 'Registration Failed' });
     }
 }
 
 
-export const loginUser = async (req:Request, res:Response): Promise<void> => {
+export const loginUser = async (req: Request, res: Response): Promise<void> => {
     const { email, password } = req.body;
 
-    try{
+    try {
         console.log("backend login hit ", req.body);
         const user = await User.findOne({ email: email.toLowerCase() });
 
-        if(!user){
+        if (!user) {
             res.status(400).json({ message: "User not found" });
             return;
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
 
-        if(!isMatch){
+        if (!isMatch) {
             res.status(400).json({ message: "Invalid password" });
             return;
         }
@@ -72,7 +72,7 @@ export const loginUser = async (req:Request, res:Response): Promise<void> => {
             token
         });
 
-    }catch(error){
+    } catch (error) {
         res.status(500).json({ message: "Login failed" });
     }
 }

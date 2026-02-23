@@ -1,7 +1,7 @@
 
 import { Socket, Server as SocketIoServer } from "socket.io";
-import User from "../model/User";
-import { generateToken } from "../Utils/token";
+import User from "../model/User.js";
+import { generateToken } from "../Utils/token.js";
 
 export function registerUserEvents(io: SocketIoServer, socket: Socket) {
     socket.on("testSocket", data => {
@@ -9,7 +9,7 @@ export function registerUserEvents(io: SocketIoServer, socket: Socket) {
     })
 
     socket.on("updateProfile", async (data: { name?: string; avatar?: string }) => {
-        
+
 
         const userId = socket.data.userId;
         if (!userId) {
@@ -19,14 +19,14 @@ export function registerUserEvents(io: SocketIoServer, socket: Socket) {
         }
 
         try {
-            
+
             const updatedUser = await User.findByIdAndUpdate(
                 userId,
                 { name: data.name, avatar: data.avatar },
                 { new: true }
             )
 
-            
+
 
             if (!updatedUser) {
                 return socket.emit("updateProfile", {
@@ -36,10 +36,10 @@ export function registerUserEvents(io: SocketIoServer, socket: Socket) {
 
             const updatedToken = generateToken(updatedUser);
 
-            socket.emit('updateProfile',{
-                success:true,
-                data:{token:updatedToken},
-                msg:"profile updated succesfully"
+            socket.emit('updateProfile', {
+                success: true,
+                data: { token: updatedToken },
+                msg: "profile updated succesfully"
             })
         }
         catch (err) {
@@ -51,43 +51,41 @@ export function registerUserEvents(io: SocketIoServer, socket: Socket) {
     })
 
 
-    socket.on("getContacts",async ()=>{
-    try{
-        const currentUserId = socket.data.userId;
-        if(!currentUserId)
-        {
-            socket.emit("getContacts",{
-                success:false,
-                msg:"Unauthorised",
-            });
-            return;
+    socket.on("getContacts", async () => {
+        try {
+            const currentUserId = socket.data.userId;
+            if (!currentUserId) {
+                socket.emit("getContacts", {
+                    success: false,
+                    msg: "Unauthorised",
+                });
+                return;
+            }
+
+            const users = await User.find({ _id: { $ne: currentUserId } }, { password: 0 }).lean();
+
+            const contacts = users.map((user) => ({
+                id: user._id.toString(),
+                name: user.name,
+                email: user.email,
+                avatar: user.avatar || "",
+            }));
+
+            socket.emit("getContacts", {
+                success: true,
+                data: contacts
+            })
+
+
+
         }
-
-        const users = await User.find({_id:{$ne:currentUserId}},{password:0}).lean();
-
-        const contacts = users.map((user)=>({
-            id:user._id.toString(),
-            name: user.name,
-            email: user.email,
-            avatar: user.avatar|| "",
-        }));
-
-        socket.emit("getContacts",{
-            success: true,
-            data:contacts
-        })
-
-
-        
-    }
-    catch(err:any)
-    {
-        console.log("get cONTACT", err);
-        socket.emit("getContacts",{
-            success:false,
-            msg:"failed to fetch Contacts",
-        })
-    }
-})
+        catch (err: any) {
+            console.log("get cONTACT", err);
+            socket.emit("getContacts", {
+                success: false,
+                msg: "failed to fetch Contacts",
+            })
+        }
+    })
 }
 

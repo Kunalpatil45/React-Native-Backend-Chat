@@ -1,17 +1,16 @@
 import { Server as SocketIoServer, Socket } from "socket.io";
-import Conversation from "../model/Conversation";
-
-import Message from "../model/Messages";
+import Conversation from "../model/Conversation.js";
+import Message from "../model/Messages.js";
 
 
 
 export function registerChatEvents(io: SocketIoServer, socket: Socket) {
     socket.on("getConversation", async () => {
-        
+
 
         try {
             const userId = socket.data.userId;
-            
+
             if (!userId) {
                 console.log("userID check ongoing")
                 socket.emit("getConversation", {
@@ -21,7 +20,7 @@ export function registerChatEvents(io: SocketIoServer, socket: Socket) {
                 return;
             }
 
-            
+
             const conversation = await Conversation.find({
                 participants: userId
             }).sort({ updatedAt: -1 })
@@ -50,7 +49,7 @@ export function registerChatEvents(io: SocketIoServer, socket: Socket) {
 
 
     socket.on("newConversation", async (data) => {
-        
+
 
         try {
             if (data.type == 'direct') {
@@ -157,11 +156,11 @@ export function registerChatEvents(io: SocketIoServer, socket: Socket) {
             const messages = await Message.find({
                 conversationId: data.conversationId,
             })
-            .sort({ createdAt: 1 })
-            .populate<{senderId: {_id:string; name:string; avatar:string}}>({
-                path:"senderId",
-                select:"name avatar"
-            }).lean();
+                .sort({ createdAt: 1 })
+                .populate<{ senderId: { _id: string; name: string; avatar: string } }>({
+                    path: "senderId",
+                    select: "name avatar"
+                }).lean();
 
             const messageWithSender = messages.map(message => ({
                 ...message,
@@ -177,7 +176,7 @@ export function registerChatEvents(io: SocketIoServer, socket: Socket) {
                 data: messageWithSender,
             })
         }
-         catch (err) {
+        catch (err) {
             console.log("getMessage err ", err);
             socket.emit("getMessage", {
                 success: false,

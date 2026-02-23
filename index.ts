@@ -1,8 +1,8 @@
 import express from "express";
 import cors from "cors";
-import connectDB from "./config/db";
-import router from "./routes/auth.routes";
-import { initializeSocket } from "./socket/socket";
+import connectDB from "./config/db.js";
+import router from "./routes/auth.routes.js";
+import { initializeSocket } from "./socket/socket.js";
 import http from "http"
 
 const app = express();
