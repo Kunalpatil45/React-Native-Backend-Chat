@@ -1,27 +1,26 @@
+
 import { UserProps } from "../type.js";
+import mongoose, { model } from "mongoose";
 
-import { Schema, model } from 'mongoose';
 
 
-const userSchema = new Schema<UserProps>({
+  const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
     unique: true,
-    trim: true,
-    lowercase: true,
   },
   password: {
     type: String,
     required: true,
   },
-  name: {
-    type: String,
-    required: true,
-  },
-  avatar: {
-    type: String,
-    default: "",
+  name: String,
+  avatar: String,
+  otp: String,
+  otpExpire: Date,
+  isOtpVerified: {
+    type: Boolean,
+    default: false,
   },
   created: {
     type: Date,

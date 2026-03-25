@@ -5,6 +5,9 @@ export interface UserProps extends Document {
   password: string;
   name?: string;
   avatar?: string;
+  otp?: string | null;
+  otpExpire?: Date | null;
+  isOtpVerified?: boolean;
   created?: Date;
 }
 

@@ -1,6 +1,7 @@
 import { Server as SocketIoServer, Socket } from "socket.io";
 import Conversation from "../model/Conversation.js";
 import Message from "../model/Messages.js";
+import { getAIResponse } from "../services/ai.service.js";
 
 
 
@@ -108,45 +109,100 @@ export function registerChatEvents(io: SocketIoServer, socket: Socket) {
         }
     });
 
-    socket.on("newMessage", async (data) => {
-        console.log("newMessage event ", data);
+     const AI_USER_ID = process.env.GEMINI_USER_ID || "69c3a70f8e54ccc2b69a8782";
+   socket.on("newMessage", async (data) => {
+  console.log("newMessage event", data);
 
-        try {
-            const message = await Message.create({
-                conversationId: data.conversationId,
-                senderId: data.sender.id,
-                content: data.content,
-                attachement: data.attachement,
-            })
+  try {
+    const userId = socket.data.userId;
 
-            io.to(data.conversationId).emit("newMessage", {
-                success: true,
-                data: {
-                    id: message._id,
-                    content: data.content,
-                    sender: {
-                        id: data.sender.id,
-                        name: data.sender.name,
-                        avatar: data.sender.avatar,
-                    },
-                    attachement: data.attachement || null,
-                    createdAt: new Date().toISOString(),
-                    conversationId: data.conversationId,
-                }
-            });
+    const isAI = data.content?.toLowerCase().startsWith("@ai");
 
-            await Conversation.findByIdAndUpdate(data.conversationId, {
-                lastMessage: message._id,
-            })
+    let cleanContent = data.content;
 
-        } catch (err) {
-            console.log("newMessage err ", err);
-            socket.emit("newMessage", {
-                success: false,
-                msg: "failed to send message",
-            })
-        }
-    })
+    if (isAI) {
+      cleanContent = data.content.replace(/@ai/i, "").trim();
+    }
+
+    // ✅ 1. CREATE USER MESSAGE
+    const userMessage = await Message.create({
+      conversationId: data.conversationId,
+      senderId: userId,
+      content: cleanContent || "",
+      attachement: data.attachement || "",
+      type: data.attachement ? "image" : "text",
+    });
+
+    // ✅ 2. POPULATE USER DATA
+   const populatedUserMsg = await userMessage.populate("senderId", "name avatar") as any;
+
+    // ✅ 3. EMIT USER MESSAGE
+    io.to(data.conversationId).emit("newMessage", {
+      success: true,
+      data: {
+        id: populatedUserMsg._id,
+        content: populatedUserMsg.content,
+        attachement: populatedUserMsg.attachement,
+        type: populatedUserMsg.type,
+        createdAt: populatedUserMsg.createdAt,
+        conversationId: populatedUserMsg.conversationId,
+        sender: {
+          id: populatedUserMsg.senderId._id,
+          name: populatedUserMsg.senderId.name,
+          avatar: populatedUserMsg.senderId.avatar,
+        },
+      },
+    });
+
+    // 🔥 4. AI RESPONSE
+    if (isAI && cleanContent) {
+      io.to(data.conversationId).emit("aiTyping", true);
+
+      const aiReply = await getAIResponse(cleanContent);
+
+      const aiMessage = await Message.create({
+        conversationId: data.conversationId,
+        senderId: AI_USER_ID,
+        content: aiReply,
+        type: "ai",
+      });
+
+      // ✅ populate AI user
+      const populatedAiMsg = await aiMessage.populate("senderId", "name avatar") as any;
+
+      io.to(data.conversationId).emit("aiTyping", false);
+
+      io.to(data.conversationId).emit("newMessage", {
+        success: true,
+        data: {
+          id: populatedAiMsg._id,
+          content: populatedAiMsg.content,
+          type: populatedAiMsg.type,
+          createdAt: populatedAiMsg.createdAt,
+          conversationId: populatedAiMsg.conversationId,
+          sender: {
+            id: populatedAiMsg.senderId._id,
+            name: populatedAiMsg.senderId.name,
+            avatar: populatedAiMsg.senderId.avatar,
+          },
+        },
+      });
+    }
+
+    // ✅ 5. UPDATE LAST MESSAGE
+    await Conversation.findByIdAndUpdate(data.conversationId, {
+      lastMessage: userMessage._id,
+    });
+
+  } catch (err) {
+    console.log("newMessage error:", err);
+
+    socket.emit("newMessage", {
+      success: false,
+      msg: "failed to send message",
+    });
+  }
+});
 
 
     socket.on("getMessage", async (data: { conversationId: string }) => {

@@ -1,12 +1,13 @@
 import { Server as SocketIoServer, Socket, Server } from "socket.io";
-
+import { getAIResponse } from "../services/ai.service.js";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken"
 import { registerUserEvents } from "./userEvent.js";
 import { registerChatEvents } from "./chatEvents.js";
 import Conversation from "../model/Conversation.js";
 
-dotenv.config();
+
+
 
 export function initializeSocket(server: any): SocketIoServer {
     const io = new SocketIoServer(server, {
