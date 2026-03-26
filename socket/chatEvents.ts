@@ -2,6 +2,8 @@ import { Server as SocketIoServer, Socket } from "socket.io";
 import Conversation from "../model/Conversation.js";
 import Message from "../model/Messages.js";
 import { getAIResponse } from "../services/ai.service.js";
+import { sendPushNotification } from "../services/notifications.js";
+import User from "../model/User.js";
 
 
 
@@ -193,6 +195,34 @@ export function registerChatEvents(io: SocketIoServer, socket: Socket) {
     await Conversation.findByIdAndUpdate(data.conversationId, {
       lastMessage: userMessage._id,
     });
+
+
+
+// 🔔 SEND PUSH
+
+const conversation = await Conversation.findById(data.conversationId).lean();
+
+if (conversation) {
+  const receivers = conversation.participants.filter(
+    (id: any) => id.toString() !== userId.toString()
+  );
+
+  for (const receiverId of receivers) {
+    const receiver = await User.findById(receiverId).lean();
+
+    if (!receiver) continue;
+
+    const tokens = (receiver as any).pushTokens ?? [];
+
+    if (tokens.length > 0) {
+      await sendPushNotification(tokens, {
+        senderName: populatedUserMsg.senderId.name,
+        text: populatedUserMsg.content,
+        chatId: data.conversationId,
+      });
+    }
+  }
+}
 
   } catch (err) {
     console.log("newMessage error:", err);
