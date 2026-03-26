@@ -4,13 +4,13 @@ import connectDB from "./config/db.js";
 import router from "./routes/auth.routes.js";
 import { initializeSocket } from "./socket/socket.js";
 import http from "http"
-
+import pushTokenRoute from './routes/pushToken.route.js'
 const app = express();
 
 
 app.use(cors());
 app.use(express.json());
-
+app.use("/",pushTokenRoute);
 app.use(router)
 
 
