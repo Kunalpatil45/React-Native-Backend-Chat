@@ -1,11 +1,12 @@
 import { Router } from "express";
-import { registerUser, loginUser ,forgetPassword, verifyOtp, resetPassword} from "../Controllers/auth.controller.js";
+import { registerUser, loginUser ,forgetPassword, verifyOtp, resetPassword , notifyPushTokenUpdate} from "../Controllers/auth.controller.js";
 
 
 const router = Router();
 
 router.post('/register', registerUser);
 
+router.post('/update-push-token', notifyPushTokenUpdate);
 
 router.post('/login', loginUser);
 

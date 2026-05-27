@@ -7,17 +7,19 @@ import nodemailer from "nodemailer";
 
 
 export const registerUser = async (req: Request, res: Response): Promise<void> => {
-    
+    console.log("Register endpoint hit with data:", req.body);
     const { email, password, avatar, name } = req.body;
+    const emaillower = email.toLowerCase();
+    console.log("loweer email", emaillower);
     try {
-        let user = await User.findOne({ email });
+        let user = await User.findOne({ emaillower });
         if (user) {
             res.status(400).json({ message: 'User already exists' });
             return;
         }
 
         user = new User({
-            email,
+            email: emaillower,
             password,
             avatar: avatar || "",
             name
@@ -45,14 +47,16 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
 
 
 export const loginUser = async (req: Request, res: Response): Promise<void> => {
+    console.log("Login endpoint hit with data:", req.body);
     const { email, password } = req.body;
     try {
 
         const user = await User.findOne({ email: email.toLowerCase() });
-        
+
 
         if (!user) {
             res.status(400).json({ message: "User not found" });
+            console.log("Login failed: User not found for email", email);
             return;
         }
 
@@ -75,8 +79,58 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
     }
 }
 
+export const notifyPushTokenUpdate = async (req:Request, res:Response) => {
+
+    try {
+
+        const {
+            userId,
+            pushToken
+        } = req.body;
+
+        console.log(
+            "STEP 3 received body:",
+            req.body
+        );
+
+        const updatedUser =
+            await User.findByIdAndUpdate(
+                userId,
+                {
+                    pushToken
+                },
+                {
+                    new: true
+                }
+            );
+
+        console.log(
+            "STEP 4 updated user:",
+            updatedUser
+        );
+
+        res.json({
+            success: true
+        });
+
+    }
+    catch (err) {
+
+        console.log(
+            "TOKEN SAVE ERROR:",
+            err
+        );
+
+        res.status(500).json({
+            success: false
+        });
+
+    }
+
+};
+
 export const forgetPassword = async (req: Request, res: Response) => {
- try {
+    try {
         const { email } = req.body;
         if (!email) return res.status(400).json({ message: "Email required" });
 
@@ -111,7 +165,7 @@ export const forgetPassword = async (req: Request, res: Response) => {
 
 
 export const verifyOtp = async (req: Request, res: Response) => {
- try {
+    try {
         const { email, otp } = req.body;
         const user = await User.findOne({
             email,
@@ -130,7 +184,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 };
 
 export const resetPassword = async (req: Request, res: Response) => {
-  try {
+    try {
         const { email, otp, password } = req.body;
         const user = await User.findOne({
             email,

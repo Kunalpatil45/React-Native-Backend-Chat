@@ -5,10 +5,22 @@ export interface UserProps extends Document {
   password: string;
   name?: string;
   avatar?: string;
+  pushToken?: string;
+
   otp?: string | null;
   otpExpire?: Date | null;
   isOtpVerified?: boolean;
   created?: Date;
+}
+
+export interface PopulatedConversationProps
+extends Omit<
+ConversationProps,
+"participants"
+>{
+
+participants: UserProps[];
+
 }
 
 export interface ConversationProps extends Document {

@@ -2,8 +2,14 @@ import { Server as SocketIoServer, Socket } from "socket.io";
 import Conversation from "../model/Conversation.js";
 import Message from "../model/Messages.js";
 import { getAIResponse } from "../services/ai.service.js";
-import { sendPushNotification } from "../services/notifications.js";
 import User from "../model/User.js";
+import { sendPushNotification }
+    from "../services/notificationService.js";
+
+import { notificationTemplates }
+    from "../services/notificationTemplate.js";
+
+import { ConversationProps, PopulatedConversationProps, UserProps } from "../type.js";
 
 
 
@@ -53,7 +59,7 @@ export function registerChatEvents(io: SocketIoServer, socket: Socket) {
 
     socket.on("newConversation", async (data) => {
 
-
+        console.log("newConversation reached");
         try {
             if (data.type == 'direct') {
                 const existingConversation = await Conversation.findOne({
@@ -64,7 +70,7 @@ export function registerChatEvents(io: SocketIoServer, socket: Socket) {
                     select: "name email avatar"
                 }).lean();
                 if (existingConversation) {
-                    socket.emit("new Conversation", {
+                    socket.emit("newConversation", {
                         success: true,
                         data: { ...existingConversation, isNew: false }
 
@@ -104,136 +110,306 @@ export function registerChatEvents(io: SocketIoServer, socket: Socket) {
         }
         catch (err) {
             console.log("newConversation err ", data);
-            socket.emit("new Conversation", {
+            socket.emit("newConversation", {
                 success: false,
                 msg: "failed to create conversation",
             })
         }
     });
 
-     const AI_USER_ID = process.env.GEMINI_USER_ID || "69c3a70f8e54ccc2b69a8782";
-   socket.on("newMessage", async (data) => {
-  console.log("newMessage event", data);
+    const AI_USER_ID =
+        process.env.GEMINI_USER_ID ||
+        "69c3a70f8e54ccc2b69a8782";
 
-  try {
-    const userId = socket.data.userId;
+    socket.on(
+        "newMessage",
+        async (data) => {
 
-    const isAI = data.content?.toLowerCase().startsWith("@ai");
+            console.log(
+                "newMessage event",
+                data
+            );
 
-    let cleanContent = data.content;
+            try {
 
-    if (isAI) {
-      cleanContent = data.content.replace(/@ai/i, "").trim();
-    }
+                const userId =
+                    socket.data.userId;
 
-    // ✅ 1. CREATE USER MESSAGE
-    const userMessage = await Message.create({
-      conversationId: data.conversationId,
-      senderId: userId,
-      content: cleanContent || "",
-      attachement: data.attachement || "",
-      type: data.attachement ? "image" : "text",
-    });
+                const isAI =
+                    data.content
+                        ?.toLowerCase()
+                        .startsWith("@ai");
 
-    // ✅ 2. POPULATE USER DATA
-   const populatedUserMsg = await userMessage.populate("senderId", "name avatar") as any;
+                let cleanContent =
+                    data.content;
 
-    // ✅ 3. EMIT USER MESSAGE
-    io.to(data.conversationId).emit("newMessage", {
-      success: true,
-      data: {
-        id: populatedUserMsg._id,
-        content: populatedUserMsg.content,
-        attachement: populatedUserMsg.attachement,
-        type: populatedUserMsg.type,
-        createdAt: populatedUserMsg.createdAt,
-        conversationId: populatedUserMsg.conversationId,
-        sender: {
-          id: populatedUserMsg.senderId._id,
-          name: populatedUserMsg.senderId.name,
-          avatar: populatedUserMsg.senderId.avatar,
-        },
-      },
-    });
+                if (isAI) {
 
-    // 🔥 4. AI RESPONSE
-    if (isAI && cleanContent) {
-      io.to(data.conversationId).emit("aiTyping", true);
+                    cleanContent =
+                        data.content
+                            .replace(
+                                /@ai/i,
+                                ""
+                            )
+                            .trim();
 
-      const aiReply = await getAIResponse(cleanContent);
-
-      const aiMessage = await Message.create({
-        conversationId: data.conversationId,
-        senderId: AI_USER_ID,
-        content: aiReply,
-        type: "ai",
-      });
-
-      // ✅ populate AI user
-      const populatedAiMsg = await aiMessage.populate("senderId", "name avatar") as any;
-
-      io.to(data.conversationId).emit("aiTyping", false);
-
-      io.to(data.conversationId).emit("newMessage", {
-        success: true,
-        data: {
-          id: populatedAiMsg._id,
-          content: populatedAiMsg.content,
-          type: populatedAiMsg.type,
-          createdAt: populatedAiMsg.createdAt,
-          conversationId: populatedAiMsg.conversationId,
-          sender: {
-            id: populatedAiMsg.senderId._id,
-            name: populatedAiMsg.senderId.name,
-            avatar: populatedAiMsg.senderId.avatar,
-          },
-        },
-      });
-    }
-
-    // ✅ 5. UPDATE LAST MESSAGE
-    await Conversation.findByIdAndUpdate(data.conversationId, {
-      lastMessage: userMessage._id,
-    });
+                }
 
 
+                // CREATE USER MESSAGE
 
-// 🔔 SEND PUSH
+                const userMessage =
+                    await Message.create({
 
-const conversation = await Conversation.findById(data.conversationId).lean();
+                        conversationId:
+                            data.conversationId,
 
-if (conversation) {
-  const receivers = conversation.participants.filter(
-    (id: any) => id.toString() !== userId.toString()
-  );
+                        senderId:
+                            userId,
 
-  for (const receiverId of receivers) {
-    const receiver = await User.findById(receiverId).lean();
+                        content:
+                            cleanContent || "",
 
-    if (!receiver) continue;
+                        attachement:
+                            data.attachement || "",
 
-    const tokens = (receiver as any).pushTokens ?? [];
+                        type:
+                            data.attachement
+                                ? "image"
+                                : "text"
 
-    if (tokens.length > 0) {
-      await sendPushNotification(tokens, {
-        senderName: populatedUserMsg.senderId.name,
-        text: populatedUserMsg.content,
-        chatId: data.conversationId,
-      });
-    }
-  }
-}
+                    });
 
-  } catch (err) {
-    console.log("newMessage error:", err);
 
-    socket.emit("newMessage", {
-      success: false,
-      msg: "failed to send message",
-    });
-  }
-});
+                // POPULATE USER DATA
 
+                const populatedUserMsg = await userMessage.populate<{
+                    senderId: {
+                        _id: string;
+                        name: string;
+                        avatar: string;
+                    }
+                }>(
+                    "senderId",
+                    "name avatar"
+                );
+
+
+                // EMIT USER MESSAGE
+
+                io.to(
+                    data.conversationId
+                )
+                    .emit(
+                        "newMessage",
+                        {
+                            success: true,
+                            data: {
+                                id:
+                                    populatedUserMsg._id,
+
+                                content:
+                                    populatedUserMsg.content,
+
+                                attachement:
+                                    populatedUserMsg.attachement,
+
+                                type:
+                                    populatedUserMsg.type,
+
+                                createdAt:
+                                    populatedUserMsg.createdAt,
+
+                                conversationId:
+                                    populatedUserMsg.conversationId,
+
+                                sender: {
+                                    id:
+                                        populatedUserMsg.senderId._id,
+
+                                    name:
+                                        populatedUserMsg.senderId.name,
+
+                                    avatar:
+                                        populatedUserMsg.senderId.avatar
+                                }
+                            }
+                        }
+                    );
+
+
+                // NOTIFICATION SECTION 🔥
+                const conversation =
+                    await Conversation
+                        .findById(
+                            data.conversationId
+                        )
+                        .populate(
+                            "participants"
+                        ) as PopulatedConversationProps | null;
+
+                if (conversation) {
+
+                    const receiver =
+                        conversation.participants.find(
+                            (p) =>
+                                p._id.toString()
+                                !== userId
+                        );
+
+                    if (receiver?.pushToken) {
+
+                        const sender =
+                            await User.findById(
+                                userId
+                            ) as UserProps | null;
+
+                        if (sender) {
+
+                            const notification =
+                                notificationTemplates.newMessage(
+                                    sender.name || "Unknown",
+                                    cleanContent,
+                                    data.conversationId
+                                );
+
+                            await sendPushNotification(
+                                receiver.pushToken,
+                                notification
+                            );
+
+                        }
+
+                    }
+
+                }
+
+                // AI RESPONSE
+
+                if (
+                    isAI &&
+                    cleanContent
+                ) {
+
+                    io.to(
+                        data.conversationId
+                    )
+                        .emit(
+                            "aiTyping",
+                            true
+                        );
+
+                    const aiReply =
+                        await getAIResponse(
+                            cleanContent
+                        );
+
+                    const aiMessage =
+                        await Message.create({
+
+                            conversationId:
+                                data.conversationId,
+
+                            senderId:
+                                AI_USER_ID,
+
+                            content:
+                                aiReply,
+
+                            type:
+                                "ai"
+
+                        });
+
+                    const populatedAiMsg = await aiMessage.populate<{
+                        senderId: {
+                            _id: string;
+                            name: string;
+                            avatar: string;
+                        }
+                    }>(
+                        "senderId",
+                        "name avatar"
+                    );
+
+                    io.to(
+                        data.conversationId
+                    )
+                        .emit(
+                            "aiTyping",
+                            false
+                        );
+
+                    io.to(
+                        data.conversationId
+                    )
+                        .emit(
+                            "newMessage",
+                            {
+                                success: true,
+                                data: {
+                                    id:
+                                        populatedAiMsg._id,
+
+                                    content:
+                                        populatedAiMsg.content,
+
+                                    type:
+                                        populatedAiMsg.type,
+
+                                    createdAt:
+                                        populatedAiMsg.createdAt,
+
+                                    conversationId:
+                                        populatedAiMsg.conversationId,
+
+                                    sender: {
+                                        id:
+                                            populatedAiMsg.senderId._id,
+
+                                        name:
+                                            populatedAiMsg.senderId.name,
+
+                                        avatar:
+                                            populatedAiMsg.senderId.avatar
+                                    }
+                                }
+                            }
+                        );
+
+                }
+
+
+                // UPDATE LAST MESSAGE
+
+                await Conversation
+                    .findByIdAndUpdate(
+                        data.conversationId,
+                        {
+                            lastMessage:
+                                userMessage._id
+                        }
+                    );
+
+            }
+            catch (err) {
+
+                console.log(
+                    "newMessage error:",
+                    err
+                );
+
+                socket.emit(
+                    "newMessage",
+                    {
+                        success: false,
+                        msg: "failed to send message"
+                    }
+                );
+
+            }
+
+        });
 
     socket.on("getMessage", async (data: { conversationId: string }) => {
         console.log("newMessage event ", data);

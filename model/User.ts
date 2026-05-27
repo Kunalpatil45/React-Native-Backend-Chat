@@ -22,6 +22,10 @@ import mongoose, { model } from "mongoose";
     type: Boolean,
     default: false,
   },
+  pushToken:{
+    type:String,
+    default:""
+},
   created: {
     type: Date,
     default: Date.now,

@@ -11,7 +11,10 @@ export const generateToken = (user: UserProps) => {
             avatar: user.avatar
         }
     }
-    return jwt.sign(payload, process.env.JWT_SECERT as string, {
+    console.log(
+        "JWT_SECRET:",process.env.JWT_SECRET
+    );
+    return jwt.sign(payload, process.env.JWT_SECRET as string, {
         expiresIn: '24h'
     })
 }
