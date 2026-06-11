@@ -52,6 +52,9 @@ export function registerUserEvents(io: SocketIoServer, socket: Socket) {
 
 
     socket.on("getContacts", async () => {
+
+    console.log("getContacts event received from user:", socket.data.userId);
+
         try {
             const currentUserId = socket.data.userId;
             if (!currentUserId) {

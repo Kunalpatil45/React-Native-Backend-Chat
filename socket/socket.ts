@@ -26,7 +26,7 @@ export function initializeSocket(server: any): SocketIoServer {
 
             jwt.verify(
                 token,
-                process.env.JWT_SECERT as string,
+                process.env.JWT_SECRET as string,
                 (err: any, decoded: any) => {
                     if (err) {
                         return next(new Error("Authatication error: invalid token provided"))
